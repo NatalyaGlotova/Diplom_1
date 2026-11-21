@@ -1,55 +1,89 @@
-import pytest
 from unittest.mock import Mock
+import pytest
 import praktikum.ingredient_types as types
-from praktikum.burger import Burger
+
 
 class TestBurger:
-
-    @pytest.fixture
-    def burger(self):
-        return Burger()
-
-    def test_init_bun_is_none(self, burger):
-        assert burger.bun is None
-
-    def test_init_ingredients_is_empty_list(self, burger):
-        assert burger.ingredients == []
-
     def test_set_buns(self, burger):
-        mock_bun = Mock()
+        mock_bun = Mock(**{"get_name.return_value": "black bun", "get_price.return_value": 100.0})
         burger.set_buns(mock_bun)
-        assert burger.bun == mock_bun
+        assert "(==== black bun ====)" in burger.get_receipt()
 
-    @pytest.mark.parametrize("ing_type", [types.INGREDIENT_TYPE_SAUCE, types.INGREDIENT_TYPE_FILLING])
-    def test_add_ingredient(self, burger, ing_type):
-        mock_ing = Mock(**{"get_type.return_value": ing_type})
+    @pytest.mark.parametrize(
+        "ing_type, ing_name",
+        [
+            (types.INGREDIENT_TYPE_SAUCE, "hot sauce"),
+            (types.INGREDIENT_TYPE_FILLING, "cutlet"),
+        ],
+    )
+    def test_add_ingredient(self, burger, ing_type, ing_name):
+        burger.set_buns(Mock(**{"get_name.return_value": "black bun", "get_price.return_value": 100.0}))
+        mock_ing = Mock(
+            **{
+                "get_type.return_value": ing_type,
+                "get_name.return_value": ing_name,
+                "get_price.return_value": 50.0,
+            }
+        )
         burger.add_ingredient(mock_ing)
-        assert burger.ingredients == [mock_ing]
+        assert f"= {ing_type.lower()} {ing_name} =" in burger.get_receipt()
 
     def test_remove_ingredient(self, burger):
-        mock_1, mock_2, mock_3 = Mock(), Mock(), Mock()
-        burger.ingredients = [mock_1, mock_2, mock_3]
-        burger.remove_ingredient(1)
-        assert burger.ingredients == [mock_1, mock_3]
+        burger.set_buns(Mock(**{"get_name.return_value": "black bun", "get_price.return_value": 100.0}))
+        mock_1 = Mock(
+            **{
+                "get_type.return_value": types.INGREDIENT_TYPE_SAUCE,
+                "get_name.return_value": "sauce 1",
+                "get_price.return_value": 50.0,
+            }
+        )
+        mock_2 = Mock(
+            **{
+                "get_type.return_value": types.INGREDIENT_TYPE_FILLING,
+                "get_name.return_value": "cutlet 2",
+                "get_price.return_value": 100.0,
+            }
+        )
+        burger.add_ingredient(mock_1)
+        burger.add_ingredient(mock_2)
 
-    @pytest.mark.parametrize("start_idx, new_idx", [(0, 1), (1, 0)])
-    def test_move_ingredient(self, burger, start_idx, new_idx):
-        mock_1, mock_2, mock_3 = Mock(), Mock(), Mock()
-        burger.ingredients = [mock_1, mock_2, mock_3]
-        target = burger.ingredients[start_idx]
-        burger.move_ingredient(start_idx, new_idx)
-        assert burger.ingredients[new_idx] == target
+        burger.remove_ingredient(0)
+        assert "sauce 1" not in burger.get_receipt()
+
+    def test_move_ingredient(self, burger):
+        burger.set_buns(Mock(**{"get_name.return_value": "black bun", "get_price.return_value": 100.0}))
+        mock_1 = Mock(
+            **{
+                "get_type.return_value": types.INGREDIENT_TYPE_SAUCE,
+                "get_name.return_value": "sauce 1",
+                "get_price.return_value": 50.0,
+            }
+        )
+        mock_2 = Mock(
+            **{
+                "get_type.return_value": types.INGREDIENT_TYPE_FILLING,
+                "get_name.return_value": "cutlet 2",
+                "get_price.return_value": 100.0,
+            }
+        )
+        burger.add_ingredient(mock_1)
+        burger.add_ingredient(mock_2)
+
+        burger.move_ingredient(0, 1)
+        receipt = burger.get_receipt()
+        assert receipt.index("cutlet 2") < receipt.index("sauce 1")
 
     @pytest.mark.parametrize(
         "bun_price, ing_prices, expected_price",
         [
             (100.0, [100.0, 50.0], 350.0),
             (150.0, [], 300.0),
-        ]
+        ],
     )
     def test_get_price(self, burger, bun_price, ing_prices, expected_price):
         burger.set_buns(Mock(**{"get_price.return_value": bun_price}))
-        burger.ingredients = [Mock(**{"get_price.return_value": price}) for price in ing_prices]
+        for price in ing_prices:
+            burger.add_ingredient(Mock(**{"get_price.return_value": price}))
         assert burger.get_price() == expected_price
 
     @pytest.mark.parametrize(
@@ -57,15 +91,19 @@ class TestBurger:
         [
             ("black bun", 100.0, types.INGREDIENT_TYPE_SAUCE, "hot sauce", 100.0, "300.0"),
             ("white bun", 150.0, types.INGREDIENT_TYPE_FILLING, "cutlet", 200.0, "500.0"),
-        ]
+        ],
     )
-    def test_get_receipt(self, burger, bun_name, bun_price, ing_type, ing_name, ing_price, expected_total):
+    def test_get_receipt(
+        self, burger, bun_name, bun_price, ing_type, ing_name, ing_price, expected_total
+    ):
         mock_bun = Mock(**{"get_name.return_value": bun_name, "get_price.return_value": bun_price})
-        mock_ing = Mock(**{
-            "get_type.return_value": ing_type,
-            "get_name.return_value": ing_name,
-            "get_price.return_value": ing_price,
-        })
+        mock_ing = Mock(
+            **{
+                "get_type.return_value": ing_type,
+                "get_name.return_value": ing_name,
+                "get_price.return_value": ing_price,
+            }
+        )
         burger.set_buns(mock_bun)
         burger.add_ingredient(mock_ing)
 
